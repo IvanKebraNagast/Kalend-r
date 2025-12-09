@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>KW Kalendár 2026</title>
+    
+    <!-- --- KONFIGURÁCIA PRE IPHONE (iOS) --- -->
+    <!-- Toto nastaví ikonu na ploche z tvojho GitHubu -->
+    <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/IvanKebraNagast/Kalend-r/main/IMG_1119.png">
+    <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/IvanKebraNagast/Kalend-r/main/IMG_1119.png">
+    
+    <!-- Aby aplikácia vyzerala ako natívna appka (bez lišty prehliadača) -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="KW 2026">
+    <!-- -------------------------------------- -->
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #111827;
+            color: #f3f4f6;
+            -webkit-tap-highlight-color: transparent; /* Odstráni bliknutie pri kliku na mobiloch */
+        }
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(1, 1fr);
+            gap: 1.5rem;
+            padding-bottom: 2rem;
+        }
+        @media (min-width: 768px) {
+            .calendar-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        @media (min-width: 1280px) {
+            .calendar-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+        /* Štýly buniek */
+        .kw-column {
+            background-color: #374151;
+            color: #fbbf24;
+            font-weight: bold;
+            font-size: 0.75rem;
+        }
+        .day-cell {
+            text-align: center;
+            font-size: 0.875rem;
+            cursor: pointer;
+            position: relative;
+            transition: transform 0.1s;
+            /* Zlepšenie dotykovej plochy */
+            touch-action: manipulation; 
+        }
+        .day-cell:active {
+            transform: scale(0.95);
+        }
+        
+        /* Indikátory */
+        .holiday-bg {
+            background-color: #15803d !important; /* Zelená pre sviatok */
+            color: white !important;
+            font-weight: bold;
+        }
+        .weekend-text {
+            color: #f87171;
+            font-weight: 600;
+        }
+        /* Bodka pre poznámku */
+        .note-marker {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            width: 6px;
+            height: 6px;
+            background-color: #ef4444; /* Červená bodka */
+            border-radius: 50%;
+            border: 1px solid #1f2937;
+        }
+        /* Modal */
+        #modal-overlay {
+            backdrop-filter: blur(4px);
+        }
+    </style>
+</head>
+<body class="p-4 safe-area-inset"> 
+<!-- safe-area-inset je pre iPhone výrezy -->
+
+    <div class="max-w-7xl mx-auto">
+        <header class="flex flex-col md:flex-row justify-between items-center mb-6 border-b border-gray-700 pb-4 gap-4">
+            <div class="text-center md:text-left">
+                <h1 class="text-2xl font-bold text-white mb-1">KW Kalendár 2026 🇩🇪</h1>
+                <p class="text-gray-400 text-xs">Sviatky + Poznámky</p>
+            </div>
+            <button onclick="poziadatONotifikacie()" class="bg-blue-600 active:bg-blue-800 text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2 transition w-full md:w-auto justify-center shadow-lg">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+                Povoliť notifikácie
+            </button>
+        </header>
+
+        <div id="calendar-root" class="calendar-grid">
+            <!-- Kalendár sa generuje sem -->
+        </div>
+        
+        <footer class="mt-8 text-center text-xs text-gray-600 pb-8">
+            <p>Pre uloženie na plochu: Zdieľať (Share) > Pridať na plochu (Add to Home Screen).</p>
+        </footer>
+    </div>
+
+    <!-- MODAL OKNO -->
+    <div id="modal-overlay" class="fixed inset-0 bg-black bg-opacity-80 hidden flex items-center justify-center z-50 px-4" onclick="zatvoritModal()">
+        <div class="bg-gray-800 border border-gray-600 rounded-xl shadow-2xl max-w-md w-full overflow-hidden transform transition-all scale-100" onclick="event.stopPropagation()">
+            
+            <!-- Hlavička Modalu -->
+            <div class="bg-gray-900 p-4 border-b border-gray-700 flex justify-between items-center">
+                <h3 class="text-xl font-bold text-white" id="modal-title">Dátum</h3>
+                <button onclick="zatvoritModal()" class="text-gray-400 hover:text-white p-2 text-2xl leading-none">&times;</button>
+            </div>
+
+            <div class="p-5 space-y-5">
+                <!-- Sekcia Sviatok -->
+                <div id="holiday-info" class="hidden bg-green-900/30 border border-green-800 rounded-lg p-3">
+                    <div class="flex items-start gap-3">
+                        <span class="text-2xl">🎉</span>
+                        <div>
+                            <p class="text-[10px] text-green-400 uppercase font-bold tracking-wide mb-1">Štátny sviatok</p>
+                            <p class="text-base font-bold text-white" id="holiday-de">Name</p>
+                            <p class="text-sm text-gray-300 italic" id="holiday-sk">Názov</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sekcia Poznámka -->
+                <div>
+                    <label class="block text-xs font-medium text-gray-400 mb-2 uppercase">Poznámka</label>
+                    <textarea id="note-input" rows="3" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 text-white text-base placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="Napíš sem..."></textarea>
+                    
+                    <div class="mt-4 flex flex-col gap-3">
+                         <div>
+                            <label class="block text-xs text-gray-400 mb-1">Čas upozornenia</label>
+                            <input type="time" id="time-input" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 text-white text-base focus:ring-blue-500 focus:outline-none">
+                        </div>
+                        <button onclick="ulozitPoznamku()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-bold text-base transition shadow-lg mt-2">
+                                Uložiť poznámku
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Tlačidlo Vymazať -->
+                <div id="delete-section" class="hidden border-t border-gray-700 pt-3 flex justify-center">
+                    <button onclick="vymazatPoznamku()" class="text-red-400 hover:text-red-300 text-sm font-medium py-2 px-4">
+                        Odstrániť poznámku
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Zvuk -->
+    <audio id="notif-sound" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg"></audio>
+
+    <script>
+        // --- DATA ---
+        const SVIATKY = {
+            "0-1": { de: "Neujahr", sk: "Nový rok" },
+            "0-6": { de: "Heilige Drei Könige", sk: "Traja králi (Bavorsko)" },
+            "2-8": { de: "Internationaler Frauentag", sk: "MDŽ (Berlín)" },
+            "3-3": { de: "Karfreitag", sk: "Veľký piatok" },
+            "3-5": { de: "Ostersonntag", sk: "Veľkonočná nedeľa" },
+            "3-6": { de: "Ostermontag", sk: "Veľkonočný pondelok" },
+            "4-1": { de: "Tag der Arbeit", sk: "Sviatok práce" },
+            "4-14": { de: "Christi Himmelfahrt", sk: "Nanebovstúpenie Pána" },
+            "4-24": { de: "Pfingstsonntag", sk: "Turíce (Nedeľa)" },
+            "4-25": { de: "Pfingstmontag", sk: "Turíce (Pondelok)" },
+            "5-4": { de: "Fronleichnam", sk: "Božie telo (Bavorsko)" },
+            "7-15": { de: "Mariä Himmelfahrt", sk: "Nanebovzatie Panny Márie" },
+            "9-3": { de: "Tag der Deutschen Einheit", sk: "Deň nemeckej jednoty" },
+            "10-1": { de: "Allerheiligen", sk: "Sviatok všetkých svätých" },
+            "11-25": { de: "1. Weihnachtstag", sk: "1. sviatok vianočný" },
+            "11-26": { de: "2. Weihnachtstag", sk: "2. sviatok vianočný" }
+        };
+
+        const MESIACE = ["Január", "Február", "Marec", "Apríl", "Máj", "Jún", "Júl", "August", "September", "Október", "November", "December"];
+        const DNI = ["Po", "Ut", "St", "Št", "Pi", "So", "Ne"];
+        const ROK = 2026;
+
+        let poznamky = JSON.parse(localStorage.getItem('kw_kalendar_2026_notes')) || {};
+        let lastNotifiedTime = "";
+
+        // --- FUNKCIE ---
+        function ziskatKW(datum) {
+            const d = new Date(Date.UTC(datum.getFullYear(), datum.getMonth(), datum.getDate()));
+            d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+            const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+            return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+        }
+
+        function vykreslitKalendar() {
+            const root = document.getElementById('calendar-root');
+            root.innerHTML = '';
+            for (let i = 0; i < 12; i++) {
+                root.innerHTML += vytvoritMesiacHTML(i);
+            }
+        }
+
+        function vytvoritMesiacHTML(mesiacIndex) {
+            const prvyDen = new Date(ROK, mesiacIndex, 1);
+            const poslednyDen = new Date(ROK, mesiacIndex + 1, 0);
+            
+            let startDen = prvyDen.getDay() || 7; 
+            let posun = startDen - 1;
+            let datum = new Date(ROK, mesiacIndex, 1 - posun);
+            
+            let html = `
+                <div class="bg-gray-800 rounded-lg shadow-lg overflow-hidden border border-gray-700">
+                    <div class="bg-gray-700 p-2 text-center font-bold text-white border-b border-gray-600 flex justify-between px-4 items-center">
+                        <span class="text-base">${MESIACE[mesiacIndex]}</span>
+                        <span class="text-gray-400 text-xs">${ROK}</span>
+                    </div>
+                    <div class="p-2">
+                        <div class="grid grid-cols-8 gap-1 mb-1 text-[10px] text-gray-400 font-semibold text-center border-b border-gray-700 pb-1">
+                            <div class="text-amber-500 self-center">KW</div>
+                            ${DNI.map(d => `<div class="self-center">${d}</div>`).join('')}
+                        </div>
+                        <div class="grid grid-cols-8 gap-y-1 gap-x-1 text-sm">
+            `;
+
+            let hotovo = false;
+            while (!hotovo) {
+                let stvrtok = new Date(datum);
+                stvrtok.setDate(datum.getDate() + 3);
+                html += `<div class="kw-column rounded flex items-center justify-center h-8 text-[10px] select-none">${ziskatKW(stvrtok)}</div>`;
+
+                for (let i = 0; i < 7; i++) {
+                    const jeAktualnyMesiac = datum.getMonth() === mesiacIndex;
+                    const klucDatum = `${datum.getMonth()}-${datum.getDate()}`;
+                    const klucPoznamka = `${datum.getFullYear()}-${datum.getMonth()}-${datum.getDate()}`;
+                    
+                    const jeSviatok = jeAktualnyMesiac && SVIATKY[klucDatum];
+                    const maPoznamku = poznamky[klucPoznamka];
+                    const jeVikend = (datum.getDay() === 0 || datum.getDay() === 6);
+
+                    let triedy = "day-cell flex items-center justify-center h-9 rounded";
+                    
+                    if (!jeAktualnyMesiac) triedy += " text-gray-600 opacity-40";
+                    else if (jeSviatok) triedy += " holiday-bg shadow-md";
+                    else if (jeVikend) triedy += " weekend-text bg-gray-800/50";
+                    else triedy += " text-gray-200 bg-gray-800";
+
+                    let marker = maPoznamku ? `<div class="note-marker"></div>` : '';
+                    let onclick = `onclick="otvoritDen(${datum.getFullYear()}, ${datum.getMonth()}, ${datum.getDate()})"`;
+
+                    html += `<div class="${triedy}" ${onclick}>${datum.getDate()}${marker}</div>`;
+                    
+                    if (jeAktualnyMesiac && datum.getDate() === poslednyDen.getDate() && i === 6) hotovo = true;
+                    datum.setDate(datum.getDate() + 1);
+                }
+                if (datum.getMonth() !== mesiacIndex && datum.getDay() === 1) hotovo = true;
+            }
+            html += `</div></div></div>`;
+            return html;
+        }
+
+        let aktualnyKluc = null;
+
+        function otvoritDen(rok, mesiac, den) {
+            const datumObj = new Date(rok, mesiac, den);
+            aktualnyKluc = `${rok}-${mesiac}-${den}`;
+            const sviatokKluc = `${mesiac}-${den}`;
+
+            document.getElementById('modal-title').innerText = `${den}. ${MESIACE[mesiac]}`;
+            document.getElementById('holiday-info').classList.add('hidden');
+            document.getElementById('delete-section').classList.add('hidden');
+            
+            if (SVIATKY[sviatokKluc]) {
+                document.getElementById('holiday-info').classList.remove('hidden');
+                document.getElementById('holiday-de').innerText = SVIATKY[sviatokKluc].de;
+                document.getElementById('holiday-sk').innerText = SVIATKY[sviatokKluc].sk;
+            }
+
+            const data = poznamky[aktualnyKluc];
+            if (data) {
+                document.getElementById('note-input').value = data.text;
+                document.getElementById('time-input').value = data.time || "";
+                document.getElementById('delete-section').classList.remove('hidden');
+            } else {
+                document.getElementById('note-input').value = "";
+                document.getElementById('time-input').value = "";
+            }
+
+            document.getElementById('modal-overlay').classList.remove('hidden');
+        }
+
+        function ulozitPoznamku() {
+            const text = document.getElementById('note-input').value.trim();
+            const time = document.getElementById('time-input').value;
+
+            if (!text && !time) {
+                vymazatPoznamku();
+                return;
+            }
+
+            poznamky[aktualnyKluc] = { text, time, notified: false };
+            localStorage.setItem('kw_kalendar_2026_notes', JSON.stringify(poznamky));
+            
+            vykreslitKalendar();
+            zatvoritModal();
+        }
+
+        function vymazatPoznamku() {
+            if (poznamky[aktualnyKluc]) {
+                delete poznamky[aktualnyKluc];
+                localStorage.setItem('kw_kalendar_2026_notes', JSON.stringify(poznamky));
+                vykreslitKalendar();
+            }
+            zatvoritModal();
+        }
+
+        function zatvoritModal() {
+            document.getElementById('modal-overlay').classList.add('hidden');
+        }
+
+        function poziadatONotifikacie() {
+            if (!("Notification" in window)) {
+                alert("Prehliadač nepodporuje notifikácie.");
+                return;
+            }
+            Notification.requestPermission().then(permission => {
+                if (permission === "granted") {
+                    new Notification("KW Kalendár", { body: "Notifikácie povolené!" });
+                }
+            });
+        }
+
+        function skontrolovatNotifikacie() {
+            const now = new Date();
+            const rok = now.getFullYear(); 
+            const mesiac = now.getMonth();
+            const den = now.getDate();
+            const hodiny = String(now.getHours()).padStart(2, '0');
+            const minuty = String(now.getMinutes()).padStart(2, '0');
+            const aktualnyCas = `${hodiny}:${minuty}`;
+            
+            // Kontrolujeme 'dnešný' dátum
+            const klucDnes = `${rok}-${mesiac}-${den}`;
+            const timeStamp = `${klucDnes}-${aktualnyCas}`;
+
+            if (poznamky[klucDnes] && poznamky[klucDnes].time === aktualnyCas) {
+                if (lastNotifiedTime !== timeStamp) {
+                    if (Notification.permission === "granted") {
+                        new Notification("Upozornenie", {
+                            body: poznamky[klucDnes].text,
+                            // Použitie rovnakej ikony aj pre notifikáciu
+                            icon: "https://raw.githubusercontent.com/IvanKebraNagast/Kalend-r/main/IMG_1119.png"
+                        });
+                        const audio = document.getElementById('notif-sound');
+                        if (audio) audio.play().catch(e => {});
+                    }
+                    lastNotifiedTime = timeStamp;
+                }
+            }
+        }
+
+        setInterval(skontrolovatNotifikacie, 10000); // Kontrola každých 10 sekúnd
+
+        vykreslitKalendar();
+    </script>
+</body>
+</html>
+
